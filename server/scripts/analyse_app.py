@@ -27,13 +27,18 @@ from app.analysis.extract import (  # noqa: E402
     Usage,
     extract_reviews,
 )
-from app.fetchers.play import FetchedReview, fetch_play_reviews  # noqa: E402
+from app.fetchers.models import FetchedReview  # noqa: E402
+from app.fetchers.play import fetch_play_reviews  # noqa: E402
 
 load_dotenv(SERVER_DIR.parent / ".env")
 load_dotenv(SERVER_DIR / ".env")
 
 DEFAULT_MODEL = "claude-haiku-4-5"
-SECTIONS = [("pain", "Pain points"), ("positive", "Positive points"), ("request", "Feature requests")]
+SECTIONS = [
+    ("pain", "Pain points"),
+    ("positive", "Positive points"),
+    ("request", "Feature requests"),
+]
 
 
 def log(msg: str) -> None:
@@ -95,7 +100,9 @@ def render_report(
             avg = f"{sum(rs) / len(rs):.2f}" if rs else "-"
             lines.append(
                 f"| {m} | {len(es)} | {avg} | "
-                + " | ".join(f"{c.get(s, 0) / len(es):.0%}" for s in ("positive", "neutral", "negative"))
+                + " | ".join(
+                    f"{c.get(s, 0) / len(es):.0%}" for s in ("positive", "neutral", "negative")
+                )
                 + " |"
             )
 
@@ -106,13 +113,21 @@ def render_report(
         if not ts:
             lines.append("_None found._")
             continue
-        lines += ["| # | Theme | Reviews | Share | Example phrases |", "| ---: | --- | ---: | ---: | --- |"]
+        lines += [
+            "| # | Theme | Reviews | Share | Example phrases |",
+            "| ---: | --- | ---: | ---: | --- |",
+        ]
         for i, t in enumerate(ts, 1):
             share = f"{t.review_count / n:.0%}" if n else "-"
             ex = "; ".join(t.example_phrases).replace("|", "/")
-            lines.append(f"| {i} | **{t.label}** — {t.description} | {t.review_count} | {share} | {ex} |")
+            lines.append(
+                f"| {i} | **{t.label}** — {t.description} | {t.review_count} | {share} | {ex} |"
+            )
         if generic:
-            lines += ["", f"_Not ranked: {generic} reviews with generic remarks (e.g. \"great app\")._"]
+            lines += [
+                "",
+                f'_Not ranked: {generic} reviews with generic remarks (e.g. "great app")._',
+            ]
 
     lines += [
         "",
@@ -129,8 +144,12 @@ def main() -> int:
     p.add_argument("--count", type=int, default=200, help="number of newest reviews (default 200)")
     p.add_argument("--lang", default=os.getenv("DEFAULT_LANG", "en"))
     p.add_argument("--country", default=os.getenv("DEFAULT_COUNTRY", "ca"))
-    p.add_argument("--model", default=os.getenv("EXTRACT_MODEL") or DEFAULT_MODEL, help="extraction model")
-    p.add_argument("--cluster-model", default=os.getenv("CLUSTER_MODEL"), help="defaults to --model")
+    p.add_argument(
+        "--model", default=os.getenv("EXTRACT_MODEL") or DEFAULT_MODEL, help="extraction model"
+    )
+    p.add_argument(
+        "--cluster-model", default=os.getenv("CLUSTER_MODEL"), help="defaults to --model"
+    )
     p.add_argument("--top", type=int, default=10, help="themes per section (default 10)")
     p.add_argument("-o", "--output", type=Path, help="write report to file instead of stdout")
     args = p.parse_args()
@@ -157,7 +176,11 @@ def main() -> int:
     ]
     log(f"Extracting with {args.model}...")
     extractions = extract_reviews(
-        client, args.model, app_name, inputs, usage,
+        client,
+        args.model,
+        app_name,
+        inputs,
+        usage,
         on_progress=lambda done, total: log(f"  {done}/{total}"),
     )
     log(f"Clustering with {cluster_model}...")

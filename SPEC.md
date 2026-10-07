@@ -87,6 +87,9 @@ CREATE TABLE analysis_runs (
 ```
 
 - Insert reviews with `ON CONFLICT (store, store_review_id) DO NOTHING`.
+- Fetching is incremental: newest first, up to `count` per store. Once `count` reviews are stored for a store, it stops at the first page that is entirely stored; below that it keeps paging so a larger `count` reaches older reviews.
+- A store returning no reviews when none are stored yet counts as an error (likely a wrong ID).
+- `analysis_runs.status`: `running` → `ok` / `partial` (one store failed) / `error`. Runs left `running` by a server restart are marked `error` on the next start.
 - Never re-analyse a review that already has a `review_analysis` row (saves API cost).
 - Re-clustering replaces that app's `themes` rows in one transaction.
 
@@ -107,10 +110,11 @@ All responses use the `{ data, error }` envelope format.
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | GET | `/api/health` | Liveness check (API + database) |
-| GET | `/api/apps` | List apps with review counts and last fetch date |
-| POST | `/api/apps` | Add app `{ name, play_id?, appstore_id?, notes? }` |
-| PUT / DELETE | `/api/apps/{id}` | Edit / delete app (cascades) |
-| POST | `/api/apps/{id}/fetch` | Fetch new reviews from both stores |
+| GET | `/api/apps` | List apps with review counts per store, analysed count, last fetch date, last run |
+| GET | `/api/apps/{id}` | One app, same fields as the list |
+| POST | `/api/apps` | Add app `{ name, play_id?, appstore_id?, notes? }` — at least one store ID; App Store ID numeric (`id` prefix stripped); duplicate ID → 409 |
+| PUT / DELETE | `/api/apps/{id}` | Edit (partial: only the fields sent) / delete app (cascades) |
+| POST | `/api/apps/{id}/fetch` | Fetch new reviews from both stores. Optional body `{ count?: 1–2000 (default 500, per store), country? }`. Returns `{ run_id, status, inserted, stores: { play?, appstore?: { fetched, inserted, error } } }` |
 | POST | `/api/apps/{id}/analyse` | Extract + cluster unanalysed reviews |
 | GET | `/api/apps/{id}/summary?from=&to=&store=` | Sentiment breakdown, rating trend by month, top themes |
 | GET | `/api/themes/{id}/reviews` | Original reviews behind a theme |
