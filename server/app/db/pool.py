@@ -14,10 +14,21 @@ def open_pool() -> ConnectionPool:
         url = os.getenv("DATABASE_URL")
         if not url:
             raise RuntimeError("DATABASE_URL is not set")
-        _pool = ConnectionPool(
-            url, min_size=1, max_size=5, kwargs={"row_factory": dict_row}, open=False
+        pool = ConnectionPool(
+            url,
+            min_size=1,
+            max_size=5,
+            kwargs={"row_factory": dict_row},
+            # Test connections on checkout so a database restart doesn't fail the next request.
+            check=ConnectionPool.check_connection,
+            open=False,
         )
-        _pool.open(wait=True, timeout=30)
+        try:
+            pool.open(wait=True, timeout=30)
+        except Exception:
+            pool.close()  # stop its background reconnect workers
+            raise
+        _pool = pool  # only keep it once it opened successfully
     return _pool
 
 
