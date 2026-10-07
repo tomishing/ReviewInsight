@@ -34,3 +34,4 @@ server/images/
 # Python
 server/.venv/
 __pycache__/
+client/.vite/

@@ -13,11 +13,19 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.db.migrate import run_migrations
 from app.db.pool import close_pool, get_pool, open_pool
+from app.envelope import fail, ok
+from app.routes import analysis, apps, reviews
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    run_migrations(open_pool())
+    pool = open_pool()
+    run_migrations(pool)
+    with pool.connection() as conn:  # runs cut off by a restart would otherwise stay 'running'
+        conn.execute(
+            """UPDATE analysis_runs SET status = 'error', error = 'Interrupted by server restart',
+                      finished_at = now() WHERE status = 'running'"""
+        )
     yield
     close_pool()
 
@@ -43,14 +51,6 @@ app.add_middleware(
 )
 
 
-def ok(data: Any) -> dict[str, Any]:
-    return {"data": data, "error": None}
-
-
-def fail(status: int, message: str) -> JSONResponse:
-    return JSONResponse(status_code=status, content={"data": None, "error": message})
-
-
 @app.exception_handler(StarletteHTTPException)
 async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
     return fail(exc.status_code, str(exc.detail))
@@ -59,6 +59,11 @@ async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
 @app.exception_handler(RequestValidationError)
 async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
     return fail(422, "; ".join(f"{'.'.join(map(str, e['loc']))}: {e['msg']}" for e in exc.errors()))
+
+
+app.include_router(apps.router)
+app.include_router(reviews.router)
+app.include_router(analysis.router)
 
 
 @app.get("/api/health")
