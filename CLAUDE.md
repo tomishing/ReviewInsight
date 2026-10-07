@@ -72,7 +72,7 @@ Ports: client `3000`, API `4000`, Postgres `5432`.
 
 ## Environment variables
 
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` — database config
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` — database config; `POSTGRES_PASSWORD` is required (no default), generate with `openssl rand -hex 16`
 - `DATABASE_URL` — connection string for the server
 - `ANTHROPIC_API_KEY` — Claude API
 - `EXTRACT_MODEL` — per-review extraction model, default `claude-haiku-4-5`
@@ -80,7 +80,7 @@ Ports: client `3000`, API `4000`, Postgres `5432`.
 - `DEFAULT_COUNTRY=ca`, `DEFAULT_LANG=en`
 - `VITE_API_URL` — default `http://localhost:4000`
 - `PORT` — server port, default `4000`
-- `CLIENT_PORT`, `DB_PORT` — host ports for client / Postgres, default `3000` / `5432` (change if taken; keep `VITE_API_URL` in sync with `PORT`)
+- `CLIENT_PORT`, `DB_PORT` — host ports for client / Postgres, bound to 127.0.0.1 only, default `3000` / `5432` (change if taken; keep `VITE_API_URL` in sync with `PORT`)
 
 ## Development phases
 

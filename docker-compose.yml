@@ -4,9 +4,9 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-reviewinsight}
       POSTGRES_USER: ${POSTGRES_USER:-reviewinsight}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reviewinsight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,10 +22,10 @@ services:
         required: false
     environment:
       PORT: ${PORT:-4000}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-reviewinsight}:${POSTGRES_PASSWORD:-reviewinsight}@db:5432/${POSTGRES_DB:-reviewinsight}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-reviewinsight}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-reviewinsight}
       CLIENT_ORIGIN: http://localhost:${CLIENT_PORT:-3000}
     ports:
-      - "${PORT:-4000}:${PORT:-4000}"
+      - "127.0.0.1:${PORT:-4000}:${PORT:-4000}"
     volumes:
       - ./server/app:/app/app
       - ./server/scripts:/app/scripts
@@ -38,7 +38,7 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
     ports:
-      - "${CLIENT_PORT:-3000}:3000"
+      - "127.0.0.1:${CLIENT_PORT:-3000}:3000"
     volumes:
       - ./client:/app
       # keep the image's node_modules, not the host's; after changing dependencies run
