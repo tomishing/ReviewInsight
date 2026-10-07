@@ -1,6 +1,8 @@
 """FastAPI entry point. All responses use the { data, error } envelope."""
 
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -9,7 +11,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-app = FastAPI(title="ReviewInsight API")
+from app.db.migrate import run_migrations
+from app.db.pool import close_pool, get_pool, open_pool
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    run_migrations(open_pool())
+    yield
+    close_pool()
+
+
+app = FastAPI(title="ReviewInsight API", lifespan=lifespan)
 
 
 # Catch-all as middleware (not an exception handler) so it runs inside CORSMiddleware
@@ -50,4 +63,6 @@ async def validation_error(_: Request, exc: RequestValidationError) -> JSONRespo
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    return ok({"status": "ok"})
+    with get_pool().connection() as conn:
+        conn.execute("SELECT 1")
+    return ok({"status": "ok", "db": "ok"})
