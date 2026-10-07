@@ -24,7 +24,7 @@ Detailed specification. Project rules, stack, and phases are in `CLAUDE.md`.
 
 ## Database schema
 
-Migrations are plain SQL in `server/app/db/migrations/`, run in filename order on server start (`001_init.sql`, `002_seed_apps.sql`, …). Each runs once in its own transaction and is recorded in `schema_migrations (filename, applied_at)`; a failing migration rolls back and stops the server. Never edit an applied migration — add a new file.
+The schema below is the current one (after all migrations). Migrations are plain SQL in `server/app/db/migrations/`, run in filename order on server start (`001_init.sql`, `002_seed_apps.sql`, …). Each runs once in its own transaction and is recorded in `schema_migrations (filename, applied_at)`; a failing migration rolls back and stops the server. Never edit an applied migration — add a new file.
 
 ```sql
 CREATE TABLE apps (
@@ -68,7 +68,9 @@ CREATE TABLE themes (
   label TEXT NOT NULL,
   description TEXT,
   review_count INTEGER NOT NULL DEFAULT 0,
-  example_review_ids INTEGER[] NOT NULL DEFAULT '{}',
+  review_ids INTEGER[] NOT NULL DEFAULT '{}',        -- every review behind the theme
+  generic BOOLEAN NOT NULL DEFAULT false,             -- vague remarks ("great app"), not ranked
+  example_phrases TEXT[] NOT NULL DEFAULT '{}',       -- up to 3 most-used phrases
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -103,6 +105,10 @@ CREATE TABLE analysis_runs (
 
 All prompts live in `server/app/analysis/prompts.py`. Every run is logged in `analysis_runs` with token usage.
 
+- Extraction saves each batch as it completes and updates the run's `items` / tokens, so progress can be polled via `/api/runs`; a failure keeps the batches already saved.
+- Clustering runs on all analysed reviews of the app, only when extraction added reviews, the app has no themes yet, or `recluster` is set. Identical phrases (case-insensitive) are sent once. A failed clustering keeps the previous themes.
+- Models: `EXTRACT_MODEL` (default `claude-haiku-4-5`), `CLUSTER_MODEL` (defaults to `EXTRACT_MODEL`).
+
 ## API design
 
 All responses use the `{ data, error }` envelope format.
@@ -115,7 +121,7 @@ All responses use the `{ data, error }` envelope format.
 | POST | `/api/apps` | Add app `{ name, play_id?, appstore_id?, notes? }` — at least one store ID; App Store ID numeric (`id` prefix stripped); duplicate ID → 409 |
 | PUT / DELETE | `/api/apps/{id}` | Edit (partial: only the fields sent) / delete app (cascades) |
 | POST | `/api/apps/{id}/fetch` | Fetch new reviews from both stores. Optional body `{ count?: 1–2000 (default 500, per store), country? }`. Returns `{ run_id, status, inserted, stores: { play?, appstore?: { fetched, inserted, error } } }` |
-| POST | `/api/apps/{id}/analyse` | Extract + cluster unanalysed reviews |
+| POST | `/api/apps/{id}/analyse` | Extract + cluster. Optional body `{ limit?: 1–5000 (default 1000, new reviews to extract), recluster?: bool }`. Returns `{ status, extract, cluster }`, each `{ run_id, status: ok/error/skipped, items, input_tokens, output_tokens, error }`. 409 if already running for the app |
 | GET | `/api/apps/{id}/summary?from=&to=&store=` | Sentiment breakdown, rating trend by month, top themes |
 | GET | `/api/themes/{id}/reviews` | Original reviews behind a theme |
 | GET | `/api/compare?type=pain` | Theme × app matrix |

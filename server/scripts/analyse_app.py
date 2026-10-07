@@ -22,6 +22,7 @@ from google_play_scraper import app as play_app  # noqa: E402
 
 from app.analysis.cluster import Theme, cluster_all  # noqa: E402
 from app.analysis.extract import (  # noqa: E402
+    DEFAULT_MODEL,
     ReviewExtraction,
     ReviewInput,
     Usage,
@@ -33,7 +34,6 @@ from app.fetchers.play import fetch_play_reviews  # noqa: E402
 load_dotenv(SERVER_DIR.parent / ".env")
 load_dotenv(SERVER_DIR / ".env")
 
-DEFAULT_MODEL = "claude-haiku-4-5"
 SECTIONS = [
     ("pain", "Pain points"),
     ("positive", "Positive points"),
@@ -181,7 +181,7 @@ def main() -> int:
         app_name,
         inputs,
         usage,
-        on_progress=lambda done, total: log(f"  {done}/{total}"),
+        on_batch=lambda _, done, total: log(f"  {done}/{total}"),
     )
     log(f"Clustering with {cluster_model}...")
     themes = cluster_all(client, cluster_model, extractions, usage)
