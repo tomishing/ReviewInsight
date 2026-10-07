@@ -75,9 +75,12 @@ Ports: client `3000`, API `4000`, Postgres `5432`.
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` — database config
 - `DATABASE_URL` — connection string for the server
 - `ANTHROPIC_API_KEY` — Claude API
+- `EXTRACT_MODEL` — per-review extraction model, default `claude-haiku-4-5`
+- `CLUSTER_MODEL` — theme clustering model, defaults to `EXTRACT_MODEL`
 - `DEFAULT_COUNTRY=ca`, `DEFAULT_LANG=en`
 - `VITE_API_URL` — default `http://localhost:4000`
 - `PORT` — server port, default `4000`
+- `CLIENT_PORT`, `DB_PORT` — host ports for client / Postgres, default `3000` / `5432` (change if taken; keep `VITE_API_URL` in sync with `PORT`)
 
 ## Development phases
 

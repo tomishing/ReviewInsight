@@ -129,7 +129,7 @@ def main() -> int:
     p.add_argument("--count", type=int, default=200, help="number of newest reviews (default 200)")
     p.add_argument("--lang", default=os.getenv("DEFAULT_LANG", "en"))
     p.add_argument("--country", default=os.getenv("DEFAULT_COUNTRY", "ca"))
-    p.add_argument("--model", default=os.getenv("EXTRACT_MODEL", DEFAULT_MODEL), help="extraction model")
+    p.add_argument("--model", default=os.getenv("EXTRACT_MODEL") or DEFAULT_MODEL, help="extraction model")
     p.add_argument("--cluster-model", default=os.getenv("CLUSTER_MODEL"), help="defaults to --model")
     p.add_argument("--top", type=int, default=10, help="themes per section (default 10)")
     p.add_argument("-o", "--output", type=Path, help="write report to file instead of stdout")

@@ -106,6 +106,7 @@ All responses use the `{ data, error }` envelope format.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
+| GET | `/api/health` | Liveness check |
 | GET | `/api/apps` | List apps with review counts and last fetch date |
 | POST | `/api/apps` | Add app `{ name, play_id?, appstore_id?, notes? }` |
 | PUT / DELETE | `/api/apps/{id}` | Edit / delete app (cascades) |

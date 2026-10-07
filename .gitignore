@@ -1,0 +1,36 @@
+# Environment variables (actual .env files are ignored)
+client/.env
+server/.env
+.env
+
+# But .env.example files are tracked for documentation
+!client/.env.example
+!server/.env.example
+
+# Node modules
+client/node_modules/
+server/node_modules/
+node_modules/
+
+# Optional (recommended)
+# Logs
+*.log
+
+# OS files
+.DS_Store
+
+# Build folders
+client/dist/
+server/dist/
+
+server/pdfs/
+server/images/
+*.pdf
+*jpg
+*.docx
+*.log
+
+
+# Python
+server/.venv/
+__pycache__/

@@ -1,4 +1,6 @@
 anthropic==1.12.0
+fastapi==0.142.3
 google-play-scraper==1.2.7
 pydantic==2.13.5
 python-dotenv==1.2.4
+uvicorn[standard]==0.54.0
