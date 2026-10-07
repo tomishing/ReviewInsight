@@ -24,7 +24,7 @@ Detailed specification. Project rules, stack, and phases are in `CLAUDE.md`.
 
 ## Database schema
 
-Migrations are plain SQL in `server/app/db/migrations/`, run in order (`001_init.sql`, …).
+Migrations are plain SQL in `server/app/db/migrations/`, run in filename order on server start (`001_init.sql`, `002_seed_apps.sql`, …). Each runs once in its own transaction and is recorded in `schema_migrations (filename, applied_at)`; a failing migration rolls back and stops the server. Never edit an applied migration — add a new file.
 
 ```sql
 CREATE TABLE apps (
@@ -106,6 +106,7 @@ All responses use the `{ data, error }` envelope format.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
+| GET | `/api/health` | Liveness check (API + database) |
 | GET | `/api/apps` | List apps with review counts and last fetch date |
 | POST | `/api/apps` | Add app `{ name, play_id?, appstore_id?, notes? }` |
 | PUT / DELETE | `/api/apps/{id}` | Edit / delete app (cascades) |
