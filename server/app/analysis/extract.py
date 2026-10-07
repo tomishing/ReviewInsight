@@ -1,6 +1,6 @@
 """Per-review extraction: sentiment, pain points, positives, requests."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Literal
 
 import anthropic
@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.analysis.prompts import EXTRACT_SYSTEM, EXTRACT_USER
 
+DEFAULT_MODEL = "claude-haiku-4-5"
 BATCH_SIZE = 50
 MAX_BODY_CHARS = 2000
 
@@ -78,7 +79,12 @@ def _extract_batch(
             usage.add(resp.usage)
             if resp.stop_reason != "end_turn" or resp.parsed_output is None:
                 raise ValueError(f"unusable response (stop_reason={resp.stop_reason})")
-            results = [r for r in resp.parsed_output.results if r.review_id in expected]
+            # keep only ids we sent, first answer per id
+            seen: dict[str, ReviewExtraction] = {}
+            for r in resp.parsed_output.results:
+                if r.review_id in expected:
+                    seen.setdefault(r.review_id, r)
+            results = list(seen.values())
             if len(results) < len(expected) * 0.9:
                 raise ValueError(f"only {len(results)}/{len(expected)} reviews returned")
             return results
@@ -93,12 +99,14 @@ def extract_reviews(
     app_name: str,
     reviews: Sequence[ReviewInput],
     usage: Usage,
-    on_progress=None,
+    on_batch: Callable[[list[ReviewExtraction], int, int], None] | None = None,
 ) -> list[ReviewExtraction]:
+    """Extract in batches; `on_batch(results, done, total)` runs after each batch (e.g. to save)."""
     out: list[ReviewExtraction] = []
     for i in range(0, len(reviews), BATCH_SIZE):
         batch = reviews[i : i + BATCH_SIZE]
-        out.extend(_extract_batch(client, model, app_name, batch, usage))
-        if on_progress:
-            on_progress(min(i + BATCH_SIZE, len(reviews)), len(reviews))
+        results = _extract_batch(client, model, app_name, batch, usage)
+        out.extend(results)
+        if on_batch:
+            on_batch(results, min(i + BATCH_SIZE, len(reviews)), len(reviews))
     return out

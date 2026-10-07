@@ -43,10 +43,15 @@ def cluster_type(
     extractions: Sequence[ReviewExtraction],
     usage: Usage,
 ) -> list[Theme]:
-    # Flatten to (phrase, review_id); ids in the prompt are 1-based list positions.
-    items: list[tuple[str, str]] = [
-        (p, e.review_id) for e in extractions for p in getattr(e, _FIELD[theme_type])
-    ]
+    # Distinct phrases (case-insensitive), each with the reviews that used it.
+    # Ids in the prompt are 1-based positions in `items`.
+    by_key: dict[str, tuple[str, list[str]]] = {}
+    for e in extractions:
+        for p in getattr(e, _FIELD[theme_type]):
+            text = " ".join(p.split())
+            if text:
+                by_key.setdefault(text.lower(), (text, []))[1].append(e.review_id)
+    items = list(by_key.values())
     if not items:
         return []
     kind = _KIND[theme_type]
@@ -80,7 +85,8 @@ def cluster_type(
         assigned.update(idx)
         if not idx:
             continue
-        review_ids = list(dict.fromkeys(items[i][1] for i in idx))
+        review_ids = list(dict.fromkeys(r for i in idx for r in items[i][1]))
+        most_used = sorted(idx, key=lambda i: len(items[i][1]), reverse=True)
         themes.append(
             Theme(
                 type=theme_type,
@@ -89,7 +95,7 @@ def cluster_type(
                 generic=t.generic,
                 review_count=len(review_ids),
                 review_ids=review_ids,
-                example_phrases=list(dict.fromkeys(items[i][0] for i in idx))[:3],
+                example_phrases=[items[i][0] for i in most_used[:3]],
             )
         )
     themes.sort(key=lambda t: t.review_count, reverse=True)
