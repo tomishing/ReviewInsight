@@ -33,6 +33,17 @@ def _anthropic() -> anthropic.Anthropic:
     return _client
 
 
+def explain_error(e: Exception) -> str:
+    """Run error text; credential problems get an actionable message instead of SDK internals."""
+    if isinstance(e, anthropic.AuthenticationError):
+        return "The Claude API key was rejected. Check ANTHROPIC_API_KEY in .env, then restart the server (docker compose up -d server)."
+    if isinstance(e, TypeError) and "authentication method" in str(e):
+        return "No Claude API key. Set ANTHROPIC_API_KEY in .env, then restart the server (docker compose up -d server)."
+    if isinstance(e, anthropic.NotFoundError) and "model" in str(e):
+        return f"Unknown model — check EXTRACT_MODEL / CLUSTER_MODEL in .env. ({e})"
+    return f"{type(e).__name__}: {e}"
+
+
 def _models() -> tuple[str, str]:
     extract_model = os.getenv("EXTRACT_MODEL") or DEFAULT_MODEL
     return extract_model, os.getenv("CLUSTER_MODEL") or extract_model
@@ -131,7 +142,7 @@ def _extract(app_id: int, app_name: str, limit: int, model: str) -> dict[str, An
     try:
         extract_reviews(_anthropic(), model, app_name, inputs, usage, on_batch=save)
     except Exception as e:  # noqa: BLE001
-        error = f"{type(e).__name__}: {e}"
+        error = explain_error(e)
         _update_run(run_id, saved, usage, "error", error)
         return _run_result(run_id, "error", saved, usage, error)
     _update_run(run_id, saved, usage, "ok")
@@ -186,7 +197,7 @@ def _cluster(app_id: int, model: str) -> dict[str, Any]:
                 ],
             )
     except Exception as e:  # noqa: BLE001
-        error = f"{type(e).__name__}: {e}"
+        error = explain_error(e)
         _update_run(run_id, 0, usage, "error", error)
         return _run_result(run_id, "error", 0, usage, error)
     _update_run(run_id, len(all_themes), usage, "ok")

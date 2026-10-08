@@ -7,20 +7,21 @@ export const useSummaryStore = create((set) => ({
   data: null,
   loading: false,
   error: null,
+  errorStatus: null,
 
   load: async (appId, filters) => {
     const req = ++latest;
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, errorStatus: null });
     try {
       const data = await summaryApi.get(appId, filters);
       if (req === latest) set({ data, loading: false });
     } catch (e) {
-      if (req === latest) set({ error: e.message, loading: false });
+      if (req === latest) set({ error: e.message, errorStatus: e.status ?? null, loading: false });
     }
   },
 
   reset: () => {
     latest++;
-    set({ data: null, loading: false, error: null });
+    set({ data: null, loading: false, error: null, errorStatus: null });
   },
 }));

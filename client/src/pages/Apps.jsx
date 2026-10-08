@@ -6,6 +6,7 @@ import AppFormModal from "../components/AppFormModal.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
+import { useDocumentTitle } from "../hooks.js";
 import StatusBadge from "../components/StatusBadge.jsx";
 
 const ago = (iso) => (iso ? formatDistanceToNow(new Date(iso), { addSuffix: true }) : "never");
@@ -90,6 +91,7 @@ function AppRow({ app, onEdit }) {
 }
 
 export default function Apps() {
+  useDocumentTitle("Apps");
   const { apps, loading, error, load, create, update } = useAppsStore();
   const [editing, setEditing] = useState(undefined); // undefined = closed, null = new, app = edit
 

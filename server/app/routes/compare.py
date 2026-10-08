@@ -8,7 +8,14 @@ from app.analysis.compare import ThemeRef, group_themes
 from app.analysis.extract import Usage
 from app.db.pool import get_pool
 from app.envelope import ok
-from app.routes.analysis import _anthropic, _models, _run_result, _start_run, _update_run
+from app.routes.analysis import (
+    _anthropic,
+    _models,
+    _run_result,
+    _start_run,
+    _update_run,
+    explain_error,
+)
 from app.routes.summary import REVIEW_FILTER, filter_params
 
 router = APIRouter(prefix="/api/compare", tags=["compare"])
@@ -131,7 +138,7 @@ def _rebuild(theme_type: ThemeType, model: str) -> dict[str, Any]:
                     [(gid, tid) for tid in g.theme_ids],
                 )
     except Exception as e:  # noqa: BLE001
-        error = f"{type(e).__name__}: {e}"
+        error = explain_error(e)
         _update_run(run_id, 0, usage, "error", error)
         return _run_result(run_id, "error", 0, usage, error)
     _update_run(run_id, len(groups), usage, "ok")

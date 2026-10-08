@@ -8,6 +8,8 @@ import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import ThemePanel from "../components/ThemePanel.jsx";
+import { useDocumentTitle } from "../hooks.js";
+import NotFound from "./NotFound.jsx";
 import ChartCard from "../components/charts/ChartCard.jsx";
 import RatingTrend from "../components/charts/RatingTrend.jsx";
 import SentimentBar from "../components/charts/SentimentBar.jsx";
@@ -110,9 +112,9 @@ function Stat({ label, value, note }) {
 
 export default function AppDetail() {
   const { id } = useParams();
-  const appId = Number(id);
+  const appId = /^\d+$/.test(id) ? Number(id) : null;
   const f = useFilters();
-  const { data, loading, error, load, reset } = useSummaryStore();
+  const { data, loading, error, errorStatus, load, reset } = useSummaryStore();
   const openTheme = useThemesStore((s) => s.open);
   const closeTheme = useThemesStore((s) => s.close);
   const [exporting, setExporting] = useState(false);
@@ -131,7 +133,7 @@ export default function AppDetail() {
   };
 
   useEffect(() => {
-    load(appId, f.filters);
+    if (appId !== null) load(appId, f.filters);
   }, [appId, f.filters, load]);
 
   // Leaving the page (or switching app) drops the old app's data and closes the panel.
@@ -139,6 +141,12 @@ export default function AppDetail() {
 
   const reload = () => load(appId, f.filters);
   const current = data && data.app.id === appId ? data : null;
+  const notFound = appId === null || (errorStatus === 404 && !current);
+  useDocumentTitle(notFound ? "Not found" : current?.app.name);
+
+  if (notFound) {
+    return <NotFound title="App not found">It may have been deleted. Pick one from the Apps page.</NotFound>;
+  }
 
   if (!current) {
     return (

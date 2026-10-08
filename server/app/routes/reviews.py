@@ -109,6 +109,8 @@ def fetch_reviews(app_id: int, body: FetchIn | None = None) -> dict[str, Any]:
                 "inserted": _insert(app_id, fetched),
                 "error": None,
             }
+        except LookupError as e:  # our own "check the ID" message: show it as written
+            stores[store] = {"fetched": 0, "inserted": 0, "error": str(e)}
         except Exception as e:  # noqa: BLE001
             stores[store] = {"fetched": 0, "inserted": 0, "error": f"{type(e).__name__}: {e}"}
 

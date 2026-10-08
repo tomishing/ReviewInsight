@@ -7,6 +7,7 @@ import { useThemesStore } from "../store/themes.js";
 import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
+import { useDocumentTitle } from "../hooks.js";
 import ThemePanel from "../components/ThemePanel.jsx";
 
 const TYPES = [
@@ -50,6 +51,7 @@ function Cell({ cell, onOpen }) {
 }
 
 export default function Compare() {
+  useDocumentTitle("Compare");
   const [params, setParams] = useSearchParams();
   const type = TYPES.some((t) => t.value === params.get("type")) ? params.get("type") : "pain";
   const onlyShared = params.get("shared") === "1";
