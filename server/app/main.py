@@ -14,7 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.db.migrate import run_migrations
 from app.db.pool import close_pool, get_pool, open_pool
 from app.envelope import fail, ok
-from app.routes import analysis, apps, reviews
+from app.routes import analysis, apps, reviews, summary
 
 
 @asynccontextmanager
@@ -43,9 +43,17 @@ async def unhandled_error(request: Request, call_next):
         return fail(500, f"{type(exc).__name__}: {exc}")
 
 
+_origin = os.getenv("CLIENT_ORIGIN", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("CLIENT_ORIGIN", "http://localhost:3000")],
+    # The browser treats localhost and 127.0.0.1 as different origins; accept both.
+    allow_origins=list(
+        {
+            _origin,
+            _origin.replace("://localhost", "://127.0.0.1"),
+            _origin.replace("://127.0.0.1", "://localhost"),
+        }
+    ),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -64,6 +72,7 @@ async def validation_error(_: Request, exc: RequestValidationError) -> JSONRespo
 app.include_router(apps.router)
 app.include_router(reviews.router)
 app.include_router(analysis.router)
+app.include_router(summary.router)
 
 
 @app.get("/api/health")

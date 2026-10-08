@@ -122,17 +122,17 @@ All responses use the `{ data, error }` envelope format.
 | PUT / DELETE | `/api/apps/{id}` | Edit (partial: only the fields sent) / delete app (cascades) |
 | POST | `/api/apps/{id}/fetch` | Fetch new reviews from both stores. Optional body `{ count?: 1–2000 (default 500, per store), country? }`. Returns `{ run_id, status, inserted, stores: { play?, appstore?: { fetched, inserted, error } } }` |
 | POST | `/api/apps/{id}/analyse` | Extract + cluster. Optional body `{ limit?: 1–5000 (default 1000, new reviews to extract), recluster?: bool }`. Returns `{ status, extract, cluster }`, each `{ run_id, status: ok/error/skipped, items, input_tokens, output_tokens, error }`. 409 if already running for the app |
-| GET | `/api/apps/{id}/summary?from=&to=&store=` | Sentiment breakdown, rating trend by month, top themes |
-| GET | `/api/themes/{id}/reviews` | Original reviews behind a theme |
+| GET | `/api/apps/{id}/summary?from=&to=&store=` | For the filter slice (`from`/`to` inclusive dates, UTC; `store` = `play` / `appstore`): `{ app, filters, totals { reviews, analysed, avg_rating, first_review, last_review }, sentiment { positive, neutral, negative }, monthly [{ month, reviews, avg_rating, analysed, positive, neutral, negative }], themes { pain, positive, request: [{ id, label, description, example_phrases, review_count }] }, generic { pain, positive, request }, themes_updated_at }`. Theme counts are recomputed for the slice; generic themes are only counted |
+| GET | `/api/themes/{id}/reviews?from=&to=&store=` | `{ theme, reviews: [{ id, store, rating, title, body, app_version, country, review_date, sentiment, phrases }] }` — the original reviews behind a theme, same filters as the summary; `phrases` are that review's extracted phrases of the theme's type |
 | GET | `/api/compare?type=pain` | Theme × app matrix |
 | GET | `/api/runs?app_id=` | Recent runs with token usage |
 | GET | `/api/export/markdown?app_id=` | Markdown report for the Obsidian vault |
 
 ## Frontend pages
 
-- **Apps** — list of target apps, add/edit, "Fetch" and "Analyse" buttons with progress and last-run status
-- **App detail** — sentiment pie, monthly rating line chart, Play vs App Store filter, top pain points / positives / requests ranked by count (bar charts); click a theme → side panel with original reviews
+- **Apps** — list of target apps with review / analysed counts, add/edit/delete, "Fetch" and "Analyse" buttons with progress (analysis polls `/api/runs`) and last-run status
+- **App detail** — one filter row (date range: all time / last 30 / 90 days / 12 months / custom; store: all / Play / App Store), kept in the URL; stat tiles (reviews, average rating, % analysed, % negative); sentiment as one stacked bar; average rating by month (line) and sentiment by month (100% stacked columns); top 10 pain points / positives / requests (horizontal bars, count at the bar end, generic themes noted but not ranked); click a bar or label → side panel with the original reviews. Every chart has a table view.
 - **Compare** — themes × apps table; highlight pain points shared by ≥2 competitors
 - Every page: loading spinners, error states with retry, empty states with guidance
 
-Sentiment colors: green = positive, gray = neutral, red = negative.
+Sentiment colors: green = positive, gray = neutral, red = negative — always in that order with gray between green and red (green vs red alone is not colour-blind safe), and always with text labels. This is why sentiment is a stacked bar, not a pie (a pie puts red next to green).
