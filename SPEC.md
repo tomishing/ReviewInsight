@@ -77,7 +77,7 @@ CREATE TABLE themes (
 CREATE TABLE analysis_runs (
   id SERIAL PRIMARY KEY,
   app_id INTEGER REFERENCES apps(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL CHECK (kind IN ('fetch','extract','cluster')),
+  kind TEXT NOT NULL CHECK (kind IN ('fetch','extract','cluster','compare')),  -- compare: app_id NULL
   items INTEGER DEFAULT 0,
   input_tokens INTEGER DEFAULT 0,
   output_tokens INTEGER DEFAULT 0,
@@ -85,6 +85,21 @@ CREATE TABLE analysis_runs (
   error TEXT,
   started_at TIMESTAMPTZ DEFAULT now(),
   finished_at TIMESTAMPTZ
+);
+
+-- Cross-app comparison: per-app themes of one type grouped into shared topics
+CREATE TABLE compare_groups (
+  id SERIAL PRIMARY KEY,
+  type TEXT NOT NULL CHECK (type IN ('pain','positive','request')),
+  label TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE compare_group_themes (
+  group_id INTEGER NOT NULL REFERENCES compare_groups(id) ON DELETE CASCADE,
+  theme_id INTEGER NOT NULL REFERENCES themes(id) ON DELETE CASCADE,
+  PRIMARY KEY (group_id, theme_id)
 );
 ```
 
@@ -101,7 +116,7 @@ CREATE TABLE analysis_runs (
 2. **Extract** — send unanalysed reviews to Claude in batches of ~50. Strict JSON per review:
    `{ "review_id", "sentiment", "pain_points": [], "positives": [], "requests": [] }` — short English phrases, empty arrays allowed. Validate with Pydantic; retry once on invalid JSON.
 3. **Cluster** — per app and type, merge similar phrases into themes (e.g. "crashes at login" + "closes on sign-in" → "Crashes during login") with counts → `themes`.
-4. **Compare** — cross-app view: pain points shared by several competitors = opportunities for PopNickel.
+4. **Compare** — cross-app view: pain points shared by several competitors = opportunities for PopNickel. Per type, the clustering model groups every app's non-generic theme labels into shared topics (`compare_groups`); a theme left out becomes its own topic. Cell value = distinct reviews of that app in the topic ÷ the app's analysed reviews. The comparison is cached and marked stale when any theme is not in a group (e.g. after an app is re-clustered); rebuilding replaces that type's groups in one transaction.
 
 All prompts live in `server/app/analysis/prompts.py`. Every run is logged in `analysis_runs` with token usage.
 
@@ -111,7 +126,7 @@ All prompts live in `server/app/analysis/prompts.py`. Every run is logged in `an
 
 ## API design
 
-All responses use the `{ data, error }` envelope format.
+All responses use the `{ data, error }` envelope format, except the Markdown export's file body.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
@@ -124,15 +139,17 @@ All responses use the `{ data, error }` envelope format.
 | POST | `/api/apps/{id}/analyse` | Extract + cluster. Optional body `{ limit?: 1–5000 (default 1000, new reviews to extract), recluster?: bool }`. Returns `{ status, extract, cluster }`, each `{ run_id, status: ok/error/skipped, items, input_tokens, output_tokens, error }`. 409 if already running for the app |
 | GET | `/api/apps/{id}/summary?from=&to=&store=` | For the filter slice (`from`/`to` inclusive dates, UTC; `store` = `play` / `appstore`): `{ app, filters, totals { reviews, analysed, avg_rating, first_review, last_review }, sentiment { positive, neutral, negative }, monthly [{ month, reviews, avg_rating, analysed, positive, neutral, negative }], themes { pain, positive, request: [{ id, label, description, example_phrases, review_count }] }, generic { pain, positive, request }, themes_updated_at }`. Theme counts are recomputed for the slice; generic themes are only counted |
 | GET | `/api/themes/{id}/reviews?from=&to=&store=` | `{ theme, reviews: [{ id, store, rating, title, body, app_version, country, review_date, sentiment, phrases }] }` — the original reviews behind a theme, same filters as the summary; `phrases` are that review's extracted phrases of the theme's type |
-| GET | `/api/compare?type=pain` | Theme × app matrix |
+| GET | `/api/compare?type=pain` | Stored topic × app matrix: `{ type, apps [{ id, name, analysed }], groups [{ id, label, description, apps_count, total_reviews, cells { app_id: { review_count, share, themes } } }], built_at, unmatched_themes, stale }` — sorted by apps sharing the topic, then reviews |
+| POST | `/api/compare/refresh?type=` | Rebuild the comparison for one type (or all three without `type`); logged as `compare` runs; 409 if already rebuilding |
+| GET | `/api/compare/groups/{id}/reviews?app_id=` | Original reviews behind one cell (same shape as theme reviews) |
 | GET | `/api/runs?app_id=` | Recent runs with token usage |
-| GET | `/api/export/markdown?app_id=` | Markdown report for the Obsidian vault |
+| GET | `/api/export/markdown?app_id=` | Markdown file for the Obsidian vault (YAML frontmatter; themes, counts and phrases — no raw review text). With `app_id`: that app's report; without: the cross-app comparison. Returns the file itself (`Content-Disposition: attachment`), not the envelope; errors use the envelope |
 
 ## Frontend pages
 
 - **Apps** — list of target apps with review / analysed counts, add/edit/delete, "Fetch" and "Analyse" buttons with progress (analysis polls `/api/runs`) and last-run status
 - **App detail** — one filter row (date range: all time / last 30 / 90 days / 12 months / custom; store: all / Play / App Store), kept in the URL; stat tiles (reviews, average rating, % analysed, % negative); sentiment as one stacked bar; average rating by month (line) and sentiment by month (100% stacked columns); top 10 pain points / positives / requests (horizontal bars, count at the bar end, generic themes noted but not ranked); click a bar or label → side panel with the original reviews. Every chart has a table view.
-- **Compare** — themes × apps table; highlight pain points shared by ≥2 competitors
+- **Compare** — tabs for pain points / positives / requests; topics × apps table with cells shaded on a one-hue scale by share (count shown too); topics shared by ≥2 apps highlighted with a "Shared by N apps" badge and an "only shared" filter; apps with < 30 analysed reviews flagged as a small sample; click a cell → side panel with its reviews; Build / Rebuild button and a notice when the comparison is stale; Export Markdown (also on App detail)
 - Every page: loading spinners, error states with retry, empty states with guidance
 
 Sentiment colors: green = positive, gray = neutral, red = negative — always in that order with gray between green and red (green vs red alone is not colour-blind safe), and always with text labels. This is why sentiment is a stacked bar, not a pie (a pie puts red next to green).

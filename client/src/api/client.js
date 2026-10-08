@@ -18,3 +18,25 @@ export async function api(path, { body, headers, ...options } = {}) {
   }
   return json?.data ?? null;
 }
+
+// Downloads a file endpoint (non-JSON on success; { data, error } on failure).
+export async function download(path) {
+  let res;
+  try {
+    res = await fetch(`${API_URL}${path}`);
+  } catch {
+    throw new Error(`Cannot reach the API at ${API_URL}`);
+  }
+  if (!res.ok) {
+    const json = await res.json().catch(() => null);
+    throw new Error(json?.error || `Download failed (${res.status})`);
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "")?.[1] || "export.md";
+  const url = URL.createObjectURL(await res.blob());
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return name;
+}

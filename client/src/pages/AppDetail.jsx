@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { format, formatDistanceToNow, subDays, subMonths } from "date-fns";
+import { exportApi } from "../api/endpoints.js";
 import { useSummaryStore } from "../store/summary.js";
 import { useThemesStore } from "../store/themes.js";
 import EmptyState from "../components/EmptyState.jsx";
@@ -114,6 +115,20 @@ export default function AppDetail() {
   const { data, loading, error, load, reset } = useSummaryStore();
   const openTheme = useThemesStore((s) => s.open);
   const closeTheme = useThemesStore((s) => s.close);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
+
+  const doExport = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await exportApi.markdown(appId);
+    } catch (e) {
+      setExportError(e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     load(appId, f.filters);
@@ -217,8 +232,19 @@ export default function AppDetail() {
             {current.themes_updated_at && ` · themes updated ${formatDistanceToNow(new Date(current.themes_updated_at), { addSuffix: true })}`}
           </p>
         </div>
-        {loading && <LoadingSpinner size="sm" label="Updating…" />}
+        <div className="flex items-center gap-3">
+          {loading && <LoadingSpinner size="sm" label="Updating…" />}
+          <button
+            onClick={doExport}
+            disabled={exporting}
+            title="Markdown report for the Obsidian vault (all reviews, no raw review text)"
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            {exporting ? "Exporting…" : "Export Markdown"}
+          </button>
+        </div>
       </div>
+      {exportError && <div className="mb-4"><ErrorState title="Export failed" message={exportError} onRetry={doExport} /></div>}
       <Filters f={f} />
       {error && <div className="mb-4"><ErrorState title="Couldn't update the summary" message={error} onRetry={reload} /></div>}
       {/* Refetch keeps the previous render, dimmed, instead of flashing a spinner. */}
