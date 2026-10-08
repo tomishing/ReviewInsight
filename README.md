@@ -1,6 +1,11 @@
 # ReviewInsight
 
-A personal tool that reads Google Play and App Store reviews of competing budgeting apps and turns them into **pain points**, **positive points**, **feature requests** and **sentiment over time** — to guide the design of **PopNickel** (see `../FinancialApp/specification.md`).
+A personal tool that reads Google Play and App Store reviews of competing budgeting apps and turns them into **pain points**, **positive points**, **feature requests** and **sentiment over time** based on a sentiment analysis.
+
+![A list of competitive applications](assets/images/apps.png)
+![A list of negative reviews](assets/images/pain.png)
+![A list of positive reviews](assets/images/positive.png)
+![A list of feature requests](assets/images/feature.png)
 
 It runs locally with Docker: a React UI, a FastAPI server, and PostgreSQL. Reviews are analysed with Claude.
 
@@ -25,13 +30,13 @@ cp .env.example .env
 
 Then edit `.env`:
 
-| Variable | What to set |
-| --- | --- |
-| `POSTGRES_PASSWORD` | **Required.** Generate one: `openssl rand -hex 16` |
-| `ANTHROPIC_API_KEY` | Your Claude API key |
-| `PORT`, `CLIENT_PORT`, `DB_PORT` | Host ports (default 4000 / 3000 / 5432). Change them if another project uses them, and keep `VITE_API_URL` in sync with `PORT` |
-| `EXTRACT_MODEL`, `CLUSTER_MODEL` | Optional. Default `claude-haiku-4-5`; `CLUSTER_MODEL` defaults to `EXTRACT_MODEL` |
-| `DEFAULT_COUNTRY`, `DEFAULT_LANG` | Store country / language for fetching (default `ca` / `en`) |
+| Variable                          | What to set                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `POSTGRES_PASSWORD`               | **Required.** Generate one: `openssl rand -hex 16`                                                                             |
+| `ANTHROPIC_API_KEY`               | Your Claude API key                                                                                                            |
+| `PORT`, `CLIENT_PORT`, `DB_PORT`  | Host ports (default 4000 / 3000 / 5432). Change them if another project uses them, and keep `VITE_API_URL` in sync with `PORT` |
+| `EXTRACT_MODEL`, `CLUSTER_MODEL`  | Optional. Default `claude-haiku-4-5`; `CLUSTER_MODEL` defaults to `EXTRACT_MODEL`                                              |
+| `DEFAULT_COUNTRY`, `DEFAULT_LANG` | Store country / language for fetching (default `ca` / `en`)                                                                    |
 
 ## Run
 
@@ -57,12 +62,12 @@ Stop with `Ctrl+C` or `docker compose down`. Data lives in the `pgdata` volume a
 
 Measured with `claude-haiku-4-5` (extraction + clustering, first full analysis of each app):
 
-| App | Reviews | Cost | Per 1,000 reviews |
-| --- | ---: | ---: | ---: |
-| Money Tracker | 600 | $0.15 | $0.25 |
-| Money Manager (Realbyte) | 755 | $0.23 | $0.31 |
-| Monarch Money | 723 | $0.30 | $0.41 |
-| YNAB | 1,000 | $0.63 | $0.63 |
+| App                      | Reviews |  Cost | Per 1,000 reviews |
+| ------------------------ | ------: | ----: | ----------------: |
+| Money Tracker            |     600 | $0.15 |             $0.25 |
+| Money Manager (Realbyte) |     755 | $0.23 |             $0.31 |
+| Monarch Money            |     723 | $0.30 |             $0.41 |
+| YNAB                     |   1,000 | $0.63 |             $0.63 |
 
 So expect roughly **$0.25–0.65 per 1,000 reviews**. Long, detailed reviews cost more to extract, and an app with many distinct phrases (more than ~250 per type) is clustered in two steps — define the themes, then assign phrases in batches — which makes clustering about as expensive as extraction (YNAB: $0.31 of its $0.63). Later runs only analyse new reviews; re-clustering an app costs its clustering share again. Rebuilding the comparison sends only theme labels and costs well under a cent. Each run's token usage is logged (`GET /api/runs`).
 
@@ -91,15 +96,15 @@ It reads `ANTHROPIC_API_KEY` from `.env`. See `--help` for options.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-| --- | --- |
-| `required variable POSTGRES_PASSWORD is missing a value` | Set `POSTGRES_PASSWORD` in `.env` |
-| `port is already allocated` | Another project uses the port. Change `PORT` / `CLIENT_PORT` / `DB_PORT` (and `VITE_API_URL`) in `.env` |
-| The header says **API down** | The server isn't running or is restarting: `docker compose ps`, `docker compose logs server` |
+| Symptom                                                                         | Fix                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `required variable POSTGRES_PASSWORD is missing a value`                        | Set `POSTGRES_PASSWORD` in `.env`                                                                                                                                                     |
+| `port is already allocated`                                                     | Another project uses the port. Change `PORT` / `CLIENT_PORT` / `DB_PORT` (and `VITE_API_URL`) in `.env`                                                                               |
+| The header says **API down**                                                    | The server isn't running or is restarting: `docker compose ps`, `docker compose logs server`                                                                                          |
 | Server logs `password authentication failed` after changing `POSTGRES_PASSWORD` | Postgres only reads it when the volume is first created. Change it in the database too: `docker compose exec db psql -U reviewinsight -c "ALTER USER reviewinsight PASSWORD '<new>'"` |
-| Analyse fails with an authentication error | Check `ANTHROPIC_API_KEY` in `.env`, then `docker compose up -d server` |
-| "Analysis is already running for this app" | One analysis per app at a time; wait for the current one to finish |
-| Fetch says "no reviews found; check the Play ID" | The store ID is wrong, or the app has no reviews in `DEFAULT_COUNTRY` |
+| Analyse fails with an authentication error                                      | Check `ANTHROPIC_API_KEY` in `.env`, then `docker compose up -d server`                                                                                                               |
+| "Analysis is already running for this app"                                      | One analysis per app at a time; wait for the current one to finish                                                                                                                    |
+| Fetch says "no reviews found; check the Play ID"                                | The store ID is wrong, or the app has no reviews in `DEFAULT_COUNTRY`                                                                                                                 |
 
 ## Data sources
 
