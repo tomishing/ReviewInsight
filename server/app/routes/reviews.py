@@ -2,9 +2,10 @@
 
 import os
 from collections.abc import Callable
+from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.db.pool import get_pool
@@ -13,6 +14,7 @@ from app.fetchers.appstore import fetch_appstore_reviews
 from app.fetchers.models import FetchedReview
 from app.fetchers.play import fetch_play_reviews
 from app.routes.apps import get_app_row
+from app.routes.summary import REVIEW_FILTER, Store, filter_params
 
 router = APIRouter(prefix="/api", tags=["reviews"])
 
@@ -121,3 +123,36 @@ def fetch_reviews(app_id: int, body: FetchIn | None = None) -> dict[str, Any]:
             (status, inserted, error, run_id),
         )
     return ok({"run_id": run_id, "status": status, "inserted": inserted, "stores": stores})
+
+
+@router.get("/themes/{theme_id}/reviews")
+def theme_reviews(
+    theme_id: int,
+    from_: date | None = Query(None, alias="from"),
+    to: date | None = None,
+    store: Store | None = None,
+) -> dict[str, Any]:
+    """The original reviews behind a theme (optionally the same filter slice as the summary)."""
+    with get_pool().connection() as conn:
+        theme = conn.execute(
+            """SELECT id, app_id, type, label, description, generic, review_count, example_phrases
+                 FROM themes WHERE id = %s""",
+            (theme_id,),
+        ).fetchone()
+        if theme is None:
+            raise HTTPException(404, f"Theme {theme_id} not found")
+        field = {"pain": "pain_points", "positive": "positives", "request": "requests"}[
+            theme["type"]
+        ]
+        rows = conn.execute(
+            f"""SELECT r.id, r.store, r.rating, r.title, r.body, r.app_version, r.country,
+                       r.review_date, ra.sentiment, ra.{field} AS phrases
+                  FROM themes t
+                  CROSS JOIN LATERAL unnest(t.review_ids) AS rid
+                  JOIN reviews r ON r.id = rid AND {REVIEW_FILTER}
+                  LEFT JOIN review_analysis ra ON ra.review_id = r.id
+                 WHERE t.id = %(theme_id)s
+                 ORDER BY r.review_date DESC NULLS LAST, r.id DESC""",
+            {"theme_id": theme_id, **filter_params(store, from_, to)},
+        ).fetchall()
+    return ok({"theme": theme, "reviews": rows})
