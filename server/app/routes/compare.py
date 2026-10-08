@@ -167,6 +167,87 @@ def refresh(type: ThemeType | None = None) -> dict[str, Any]:  # noqa: A002
     return ok({"status": status, "runs": results})
 
 
+@router.get("/groups/{group_id}")
+def group_detail(group_id: int) -> dict[str, Any]:
+    """Summary of one topic: per app, how often and how it is mentioned, and the themes behind it."""
+    with get_pool().connection() as conn:
+        group = conn.execute(
+            "SELECT id, type, label, description, created_at FROM compare_groups WHERE id = %s",
+            (group_id,),
+        ).fetchone()
+        if group is None:
+            raise HTTPException(404, f"Comparison group {group_id} not found")
+        # Distinct reviews per app behind the topic, with their ratings and sentiment.
+        stats = conn.execute(
+            """WITH revs AS (
+                 SELECT DISTINCT t.app_id, rid
+                   FROM compare_group_themes gt
+                   JOIN themes t ON t.id = gt.theme_id
+                   CROSS JOIN LATERAL unnest(t.review_ids) AS rid
+                  WHERE gt.group_id = %(g)s)
+               SELECT a.id AS app_id, a.name,
+                      count(r.id) AS review_count,
+                      round(avg(r.rating), 2)::float AS avg_rating,
+                      count(*) FILTER (WHERE ra.sentiment = 'positive') AS positive,
+                      count(*) FILTER (WHERE ra.sentiment = 'neutral')  AS neutral,
+                      count(*) FILTER (WHERE ra.sentiment = 'negative') AS negative,
+                      min(r.review_date) AS first_review, max(r.review_date) AS last_review,
+                      (SELECT count(*) FROM review_analysis ra2 JOIN reviews r2 ON r2.id = ra2.review_id
+                        WHERE r2.app_id = a.id) AS app_analysed,
+                      (SELECT round(avg(r3.rating), 2)::float FROM reviews r3
+                        WHERE r3.app_id = a.id) AS app_avg_rating
+                 FROM revs
+                 JOIN reviews r ON r.id = revs.rid
+                 JOIN apps a ON a.id = revs.app_id
+                 LEFT JOIN review_analysis ra ON ra.review_id = r.id
+                GROUP BY a.id
+                ORDER BY count(r.id) DESC, lower(a.name)""",
+            {"g": group_id},
+        ).fetchall()
+        themes = conn.execute(
+            """SELECT t.app_id, t.id, t.label, t.description, t.review_count, t.example_phrases
+                 FROM compare_group_themes gt JOIN themes t ON t.id = gt.theme_id
+                WHERE gt.group_id = %s
+                ORDER BY t.review_count DESC""",
+            (group_id,),
+        ).fetchall()
+
+    by_app: dict[int, list[dict[str, Any]]] = {}
+    for t in themes:
+        by_app.setdefault(t.pop("app_id"), []).append(t)
+    apps = []
+    for s in stats:
+        n = s["app_analysed"]
+        apps.append(
+            {
+                **{
+                    k: s[k]
+                    for k in (
+                        "app_id",
+                        "name",
+                        "review_count",
+                        "avg_rating",
+                        "app_avg_rating",
+                        "app_analysed",
+                        "first_review",
+                        "last_review",
+                    )
+                },
+                "share": round(s["review_count"] / n, 4) if n else 0,
+                "sentiment": {k: s[k] for k in ("positive", "neutral", "negative")},
+                "themes": by_app.get(s["app_id"], []),
+            }
+        )
+    return ok(
+        {
+            "group": group,
+            "apps_count": len(apps),
+            "review_count": sum(a["review_count"] for a in apps),
+            "apps": apps,
+        }
+    )
+
+
 @router.get("/groups/{group_id}/reviews")
 def group_reviews(group_id: int, app_id: int) -> dict[str, Any]:
     """The original reviews behind one cell: one app's themes in one group."""

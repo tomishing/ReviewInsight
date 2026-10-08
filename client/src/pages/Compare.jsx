@@ -9,6 +9,7 @@ import ErrorState from "../components/ErrorState.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { useDocumentTitle } from "../hooks.js";
 import ThemePanel from "../components/ThemePanel.jsx";
+import TopicPanel from "../components/TopicPanel.jsx";
 
 const TYPES = [
   { value: "pain", label: "Pain points" },
@@ -55,7 +56,7 @@ export default function Compare() {
   const [params, setParams] = useSearchParams();
   const type = TYPES.some((t) => t.value === params.get("type")) ? params.get("type") : "pain";
   const onlyShared = params.get("shared") === "1";
-  const { data, loading, error, refreshing, refreshError, load, refresh } = useCompareStore();
+  const { data, loading, error, refreshing, refreshError, load, refresh, openTopic, closeTopic } = useCompareStore();
   const openGroup = useThemesStore((s) => s.openGroup);
   const closePanel = useThemesStore((s) => s.close);
   const [exporting, setExporting] = useState(false);
@@ -64,7 +65,7 @@ export default function Compare() {
   useEffect(() => {
     load(type);
   }, [type, load]);
-  useEffect(() => closePanel, [closePanel]);
+  useEffect(() => () => (closePanel(), closeTopic()), [closePanel, closeTopic]);
 
   const setParam = (k, v) => {
     const next = new URLSearchParams(params);
@@ -153,7 +154,13 @@ export default function Compare() {
               {rows.map((g) => (
                 <tr key={g.id} className={`border-t border-slate-100 ${g.apps_count >= 2 ? "bg-amber-50/40" : ""}`}>
                   <td className={`px-4 py-2 align-top ${g.apps_count >= 2 ? "border-l-4 border-l-amber-400" : "border-l-4 border-l-transparent"}`}>
-                    <div className="font-medium text-slate-900">{g.label}</div>
+                    <button
+                      onClick={() => openTopic(g.id)}
+                      className="text-left font-medium text-slate-900 underline-offset-2 hover:underline"
+                      title="Open the topic summary"
+                    >
+                      {g.label}
+                    </button>
                     {g.description && <div className="text-xs text-slate-500">{g.description}</div>}
                     {g.apps_count >= 2 && (
                       <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
@@ -225,6 +232,7 @@ export default function Compare() {
 
       <div className={loading && current ? "opacity-60 transition-opacity" : "transition-opacity"}>{body}</div>
       <ThemePanel />
+      <TopicPanel />
     </section>
   );
 }
