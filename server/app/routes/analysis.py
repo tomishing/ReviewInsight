@@ -46,7 +46,7 @@ class AnalyseIn(BaseModel):
 # --- run log helpers ---------------------------------------------------------------------
 
 
-def _start_run(app_id: int, kind: str) -> int:
+def _start_run(app_id: int | None, kind: str) -> int:
     with get_pool().connection() as conn:
         return conn.execute(
             "INSERT INTO analysis_runs (app_id, kind) VALUES (%s, %s) RETURNING id", (app_id, kind)
@@ -235,7 +235,7 @@ def list_runs(app_id: int | None = None, limit: int = Query(50, ge=1, le=500)) -
     with get_pool().connection() as conn:
         rows = conn.execute(
             """SELECT r.*, a.name AS app_name
-                 FROM analysis_runs r JOIN apps a ON a.id = r.app_id
+                 FROM analysis_runs r LEFT JOIN apps a ON a.id = r.app_id
                 WHERE %(app_id)s::int IS NULL OR r.app_id = %(app_id)s
                 ORDER BY r.started_at DESC, r.id DESC
                 LIMIT %(limit)s""",

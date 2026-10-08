@@ -1,4 +1,4 @@
-import { api } from "./client.js";
+import { api, download } from "./client.js";
 
 // Builds "?a=1&b=2" from an object, skipping empty values.
 function query(params = {}) {
@@ -28,4 +28,14 @@ export const summaryApi = {
 
 export const themesApi = {
   reviews: (themeId, filters) => api(`/api/themes/${themeId}/reviews${query(filters)}`),
+};
+
+export const compareApi = {
+  get: (type) => api(`/api/compare${query({ type })}`),
+  refresh: (type) => api(`/api/compare/refresh${query({ type })}`, { method: "POST" }),
+  groupReviews: (groupId, appId) => api(`/api/compare/groups/${groupId}/reviews${query({ app_id: appId })}`),
+};
+
+export const exportApi = {
+  markdown: (appId) => download(`/api/export/markdown${query({ app_id: appId })}`),
 };

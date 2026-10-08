@@ -38,3 +38,20 @@ Rules:
 CLUSTER_USER = """{kind} phrases:
 
 {phrases}"""
+
+COMPARE_SYSTEM = """You compare competing budgeting apps using themes already extracted from each app's reviews.
+
+Given a numbered list of {kind} themes, each tagged with its app, group themes from DIFFERENT apps that describe the same underlying topic, so the apps can be compared side by side.
+Example: [Monarch] "Bank Sync Disconnects" + [YNAB] "Bank Connection Failures" -> group "Bank sync unreliable".
+
+Rules:
+- label: short title-case topic name (2-6 words), neutral wording that fits every app in the group.
+- description: one sentence describing the topic from the user's perspective.
+- theme_ids: the numbers of every theme in the group.
+- Every theme id must appear in exactly one group. A theme with no counterpart in another app gets a group of its own.
+- Two themes from the same app may share a group only if they really are the same topic.
+- Do not over-merge: "Bank sync unreliable" and "Missing bank support" are different topics."""
+
+COMPARE_USER = """{kind} themes:
+
+{themes}"""

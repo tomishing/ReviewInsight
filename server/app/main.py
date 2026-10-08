@@ -14,7 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.db.migrate import run_migrations
 from app.db.pool import close_pool, get_pool, open_pool
 from app.envelope import fail, ok
-from app.routes import analysis, apps, reviews, summary
+from app.routes import analysis, apps, compare, export, reviews, summary
 
 
 @asynccontextmanager
@@ -56,6 +56,7 @@ app.add_middleware(
     ),
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],  # filename of Markdown exports
 )
 
 
@@ -73,6 +74,8 @@ app.include_router(apps.router)
 app.include_router(reviews.router)
 app.include_router(analysis.router)
 app.include_router(summary.router)
+app.include_router(compare.router)
+app.include_router(export.router)
 
 
 @app.get("/api/health")
