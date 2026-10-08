@@ -107,9 +107,9 @@ export const useAppsStore = create((set, get) => ({
     try {
       const r = await appsApi.analyse(id);
       const parts = [];
-      if (r.extract.status !== "skipped") parts.push(`${r.extract.items} reviews analysed`);
+      if (r.extract.status === "ok" || r.extract.items) parts.push(`${r.extract.items} reviews analysed`);
       if (r.cluster.status === "ok") parts.push(`${r.cluster.items} themes`);
-      if (!parts.length) parts.push("Nothing new to analyse");
+      if (!parts.length && r.status !== "error") parts.push("Nothing new to analyse");
       const errors = [r.extract, r.cluster].filter((s) => s.status === "error").map((s) => s.error);
       get()._setResult(id, { ok: r.status !== "error", text: [...parts, ...errors].join(" · ") });
     } catch (e) {

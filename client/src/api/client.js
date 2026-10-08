@@ -14,7 +14,8 @@ export async function api(path, { body, headers, ...options } = {}) {
   }
   const json = await res.json().catch(() => null);
   if (!res.ok || json?.error) {
-    throw new Error(json?.error || `Request failed (${res.status})`);
+    // `status` lets pages tell "not found" apart from failures worth retrying.
+    throw Object.assign(new Error(json?.error || `Request failed (${res.status})`), { status: res.status });
   }
   return json?.data ?? null;
 }

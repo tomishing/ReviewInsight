@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "./api/client.js";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Apps from "./pages/Apps.jsx";
 import AppDetail from "./pages/AppDetail.jsx";
 import Compare from "./pages/Compare.jsx";
+import NotFound from "./pages/NotFound.jsx";
+
+const HEALTH_POLL_MS = 30000;
 
 const navClass = ({ isActive }) =>
   `px-3 py-1.5 rounded-md text-sm font-medium ${
@@ -12,14 +16,23 @@ const navClass = ({ isActive }) =>
 
 function ApiStatus() {
   const [status, setStatus] = useState("checking");
+  // Re-check periodically and when the tab regains focus, so the dot follows the server.
   useEffect(() => {
-    api("/api/health")
-      .then(() => setStatus("ok"))
-      .catch(() => setStatus("down"));
+    const check = () =>
+      api("/api/health")
+        .then(() => setStatus("ok"))
+        .catch(() => setStatus("down"));
+    check();
+    const timer = setInterval(check, HEALTH_POLL_MS);
+    window.addEventListener("focus", check);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", check);
+    };
   }, []);
   const color = { checking: "bg-slate-400", ok: "bg-green-500", down: "bg-red-500" }[status];
   return (
-    <span className="flex items-center gap-1.5 text-xs text-slate-500">
+    <span className="flex items-center gap-1.5 text-xs text-slate-500" title={status === "down" ? "The API server is not responding — is `docker compose up` running?" : undefined}>
       <span className={`h-2 w-2 rounded-full ${color}`} />
       API {status}
     </span>
@@ -27,6 +40,7 @@ function ApiStatus() {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
@@ -40,12 +54,15 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">
-        <Routes>
-          <Route path="/" element={<Navigate to="/apps" replace />} />
-          <Route path="/apps" element={<Apps />} />
-          <Route path="/apps/:id" element={<AppDetail />} />
-          <Route path="/compare" element={<Compare />} />
-        </Routes>
+        <ErrorBoundary resetKey={pathname}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/apps" replace />} />
+            <Route path="/apps" element={<Apps />} />
+            <Route path="/apps/:id" element={<AppDetail />} />
+            <Route path="/compare" element={<Compare />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
     </div>
   );
