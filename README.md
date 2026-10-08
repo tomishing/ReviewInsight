@@ -6,7 +6,7 @@ It runs locally with Docker: a React UI, a FastAPI server, and PostgreSQL. Revie
 
 - **Apps** — the competitors you track; fetch their reviews and analyse them.
 - **App detail** — sentiment, rating and sentiment by month, and the top themes; click a theme to read the reviews behind it.
-- **Compare** — the same topics across apps; pain points shared by several competitors are opportunities for PopNickel.
+- **Compare** — the same topics across apps; pain points shared by several competitors are opportunities for PopNickel. Click a topic for a per-app summary.
 - **Export** — Markdown reports (per app, or the comparison) for the Obsidian vault.
 
 `SPEC.md` has the details (data sources, schema, pipeline, API, pages); `CLAUDE.md` the project conventions.
@@ -48,12 +48,23 @@ Stop with `Ctrl+C` or `docker compose down`. Data lives in the `pgdata` volume a
 1. **Apps** → **Fetch** downloads the newest reviews from both stores (up to 500 per store; later fetches only add new ones).
 2. **Analyse** sends reviews that haven't been analysed yet to Claude in batches of 50, then groups the extracted phrases into themes. Progress shows in the row. Already-analysed reviews are never sent again.
 3. Click an app for its **detail** page. Filter by date range and store; the filters are kept in the URL.
-4. **Compare** → **Build comparison** groups every app's themes into shared topics (needs at least two analysed apps). After an app is analysed again, the page offers a **Rebuild**.
+4. **Compare** → **Build comparison** groups every app's themes into shared topics (needs at least two analysed apps). After an app is analysed again, the page shows a notice — click **Rebuild**.
+   - Click a **topic name** for its summary: per app, the share of reviews mentioning it, the average rating of those reviews against the app's overall rating, sentiment, when it was mentioned, the app's own themes behind it with example phrases, and the reviews themselves.
+   - Click a **cell** to read that app's reviews for the topic.
 5. **Export Markdown** on the detail or Compare page downloads a report with YAML frontmatter, ready for the vault. Reports contain themes, counts and short phrases — no raw review text.
 
 ### Cost
 
-Measured with `claude-haiku-4-5`: about **$0.25 per 1,000 reviews** analysed (extraction plus clustering). Rebuilding the comparison sends only theme labels and costs well under a cent. Each run's token usage is logged (`GET /api/runs`).
+Measured with `claude-haiku-4-5` (extraction + clustering, first full analysis of each app):
+
+| App | Reviews | Cost | Per 1,000 reviews |
+| --- | ---: | ---: | ---: |
+| Money Tracker | 600 | $0.15 | $0.25 |
+| Money Manager (Realbyte) | 755 | $0.23 | $0.31 |
+| Monarch Money | 723 | $0.30 | $0.41 |
+| YNAB | 1,000 | $0.63 | $0.63 |
+
+So expect roughly **$0.25–0.65 per 1,000 reviews**. Long, detailed reviews cost more to extract, and an app with many distinct phrases (more than ~250 per type) is clustered in two steps — define the themes, then assign phrases in batches — which makes clustering about as expensive as extraction (YNAB: $0.31 of its $0.63). Later runs only analyse new reviews; re-clustering an app costs its clustering share again. Rebuilding the comparison sends only theme labels and costs well under a cent. Each run's token usage is logged (`GET /api/runs`).
 
 To try another model, set `EXTRACT_MODEL` in `.env` and restart the server (`docker compose up -d server`). Reviews already analysed keep their results.
 
@@ -75,6 +86,7 @@ It reads `ANTHROPIC_API_KEY` from `.env`. See `--help` for options.
 - **Dependencies**: after changing `client/package.json`, run `docker compose up --build -V` (`-V` recreates the `node_modules` volume from the new image). After changing `server/requirements.txt`, `docker compose up --build`.
 - **Database changes**: add a new file in `server/app/db/migrations/` (`005_….sql`); it runs once on the next server start. Never edit an applied migration.
 - **Python style**: `ruff check server && ruff format server`.
+- **Editing server code during an analysis**: `uvicorn --reload` waits for running requests before restarting, so the analysis finishes normally but the API stops answering until it does (the header shows **API down**). Avoid server edits while an analysis runs.
 - **Running server code on the host** (e.g. scripts against the database): `.env`'s `DATABASE_URL` points at `localhost:${DB_PORT}`.
 
 ## Troubleshooting
