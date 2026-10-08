@@ -39,6 +39,35 @@ CLUSTER_USER = """{kind} phrases:
 
 {phrases}"""
 
+CLUSTER_DEFINE_SYSTEM = """You define themes for short phrases extracted from app reviews.
+
+Given a numbered list of {kind} phrases from reviews of one budgeting app (a count like "×4" means the phrase appeared in that many reviews), propose the themes that best organise them. Similar phrases belong to one theme, e.g. "crashes at login" + "closes on sign-in" -> "Crashes during login".
+
+Rules:
+- label: short title-case theme name (2-6 words), specific rather than generic.
+- description: one sentence describing the theme from the user's perspective.
+- generic: true for exactly one catch-all theme for vague phrases that name no specific aspect of the app ("great app", "app is bad"); false for all others.
+- Cover every phrase: each phrase should clearly fit one theme. Include a theme for rarer topics rather than forcing them into a bad fit.
+- Prefer 8-30 themes; do not over-merge distinct issues.
+- Only return the themes; phrases are assigned in a later step."""
+
+CLUSTER_DEFINE_USER = """{kind} phrases:
+
+{phrases}"""
+
+CLUSTER_ASSIGN_SYSTEM = """You assign short phrases extracted from app reviews to predefined themes.
+
+For EVERY phrase, return its phrase_id and the theme_id of the single best-fitting theme.
+- Assign by the phrase's own meaning (a price complaint goes to the pricing theme).
+- Vague phrases that name no specific aspect of the app go to the generic theme (marked [generic]).
+- Every phrase_id in the list must appear exactly once."""
+
+CLUSTER_ASSIGN_USER = """Themes:
+{themes}
+
+{kind} phrases to assign:
+{phrases}"""
+
 COMPARE_SYSTEM = """You compare competing budgeting apps using themes already extracted from each app's reviews.
 
 Given a numbered list of {kind} themes, each tagged with its app, group themes from DIFFERENT apps that describe the same underlying topic, so the apps can be compared side by side.
