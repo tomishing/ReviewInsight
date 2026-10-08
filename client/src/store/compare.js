@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { compareApi } from "../api/endpoints.js";
 
 let latest = 0;
+let latestTopic = 0;
 
 export const useCompareStore = create((set, get) => ({
   data: null, // matrix for `type`
@@ -10,6 +11,27 @@ export const useCompareStore = create((set, get) => ({
   error: null,
   refreshing: false,
   refreshError: null,
+  // Topic detail panel
+  topicId: null,
+  topic: null,
+  topicLoading: false,
+  topicError: null,
+
+  openTopic: async (groupId) => {
+    const req = ++latestTopic;
+    set({ topicId: groupId, topic: null, topicLoading: true, topicError: null });
+    try {
+      const topic = await compareApi.group(groupId);
+      if (req === latestTopic) set({ topic, topicLoading: false });
+    } catch (e) {
+      if (req === latestTopic) set({ topicError: e.message, topicLoading: false });
+    }
+  },
+
+  closeTopic: () => {
+    latestTopic++;
+    set({ topicId: null, topic: null, topicLoading: false, topicError: null });
+  },
 
   load: async (type) => {
     const req = ++latest;

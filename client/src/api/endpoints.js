@@ -33,6 +33,7 @@ export const themesApi = {
 export const compareApi = {
   get: (type) => api(`/api/compare${query({ type })}`),
   refresh: (type) => api(`/api/compare/refresh${query({ type })}`, { method: "POST" }),
+  group: (groupId) => api(`/api/compare/groups/${groupId}`),
   groupReviews: (groupId, appId) => api(`/api/compare/groups/${groupId}/reviews${query({ app_id: appId })}`),
 };
 
