@@ -44,7 +44,17 @@ Then edit `.env`:
 docker compose up --build
 ```
 
-Open <http://localhost:3000> (or your `CLIENT_PORT`). The database schema and the six seed apps are created automatically on first start. All three services listen on `127.0.0.1` only.
+Open <http://localhost:3000> (or your `CLIENT_PORT`). The database schema and the six seed apps are created automatically on first start.
+
+| Service  | Default URL                          | Port variable |
+| -------- | ------------------------------------ | ------------- |
+| Client   | <http://localhost:3000>              | `CLIENT_PORT` |
+| API      | <http://localhost:4000/api> (e.g. `/api/apps`) | `PORT`        |
+| Postgres | `localhost:5432`                     | `DB_PORT`     |
+
+All three listen on `127.0.0.1` only. If you change the ports in `.env` (e.g. `3100` / `4100` / `5532` to avoid clashing with another project), use those in the URLs above, keep `VITE_API_URL` in sync with `PORT`, and restart with `docker compose up -d`.
+
+To run in the background: `docker compose up -d --build`, then `docker compose ps` to check status and `docker compose logs -f server` for logs.
 
 Stop with `Ctrl+C` or `docker compose down`. Data lives in the `pgdata` volume and survives restarts; `docker compose down -v` deletes it.
 
