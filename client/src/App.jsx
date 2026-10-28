@@ -5,6 +5,7 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Apps from "./pages/Apps.jsx";
 import AppDetail from "./pages/AppDetail.jsx";
 import Compare from "./pages/Compare.jsx";
+import StoreInfo from "./pages/StoreInfo.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 const HEALTH_POLL_MS = 30000;
@@ -49,6 +50,7 @@ export default function App() {
           <nav className="flex gap-1">
             <NavLink to="/apps" className={navClass}>Apps</NavLink>
             <NavLink to="/compare" className={navClass}>Compare</NavLink>
+            <NavLink to="/store-info" className={navClass}>Store info</NavLink>
           </nav>
           <div className="ml-auto"><ApiStatus /></div>
         </div>
@@ -60,6 +62,7 @@ export default function App() {
             <Route path="/apps" element={<Apps />} />
             <Route path="/apps/:id" element={<AppDetail />} />
             <Route path="/compare" element={<Compare />} />
+            <Route path="/store-info" element={<StoreInfo />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </ErrorBoundary>

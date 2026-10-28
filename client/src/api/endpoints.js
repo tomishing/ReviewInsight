@@ -40,3 +40,9 @@ export const compareApi = {
 export const exportApi = {
   markdown: (appId) => download(`/api/export/markdown${query({ app_id: appId })}`),
 };
+
+export const storeInfoApi = {
+  list: () => api("/api/store-info"),
+  refreshAll: () => api("/api/store-info/refresh", { method: "POST" }),
+  refresh: (appId) => api(`/api/apps/${appId}/store-info/refresh`, { method: "POST" }),
+};

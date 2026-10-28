@@ -19,6 +19,7 @@ Detailed specification. Project rules, stack, and phases are in `CLAUDE.md`.
 
 - **Google Play**: `google-play-scraper` (unofficial). Default `lang=en`, `country=ca`, sort newest, paginate with continuation token.
 - **App Store**: `https://itunes.apple.com/{country}/rss/customerreviews/page={1..10}/id={appId}/sortby=mostrecent/json` — max ~500 most recent reviews per country.
+- **Store info** (rating, price, in-app purchases, ads): Play via `google-play-scraper`'s `app()` (rating, 1–5★ histogram, installs, price, in-app price *range*, ads); App Store via `https://itunes.apple.com/lookup?id=&country=` (rating, count, price) plus the named in-app purchases embedded in the `apps.apple.com/{country}/app/id{id}` page (unofficial, best-effort — `iap_items` is null if the page format changes).
 - Both are unofficial; one app failing must not stop the others.
 - Personal research only — ≥1 s between page requests, do not redistribute raw review text.
 
@@ -101,7 +102,19 @@ CREATE TABLE compare_group_themes (
   theme_id INTEGER NOT NULL REFERENCES themes(id) ON DELETE CASCADE,
   PRIMARY KEY (group_id, theme_id)
 );
+
+CREATE TABLE store_info (
+  app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+  store TEXT NOT NULL CHECK (store IN ('play','appstore')),
+  data JSONB,  -- StoreInfo: url, rating, rating_count, histogram, installs, price, currency,
+               -- offers_iap, iap_range, iap_items [{ name, price, amount }], contains_ads
+  error TEXT,  -- last refresh error, NULL when it succeeded
+  fetched_at TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (app_id, store)
+);
 ```
+
+- Store info keeps only the latest listing per app and store; a failed refresh keeps the last good `data` (and its `fetched_at`) and records `error`.
 
 - Insert reviews with `ON CONFLICT (store, store_review_id) DO NOTHING`.
 - Fetching is incremental: newest first, up to `count` per store. Once `count` reviews are stored for a store, it stops at the first page that is entirely stored; below that it keeps paging so a larger `count` reaches older reviews.
@@ -143,6 +156,9 @@ All responses use the `{ data, error }` envelope format, except the Markdown exp
 | POST | `/api/compare/refresh?type=` | Rebuild the comparison for one type (or all three without `type`); logged as `compare` runs; 409 if already rebuilding |
 | GET | `/api/compare/groups/{id}` | Topic summary: `{ group, apps_count, review_count, apps: [{ app_id, name, review_count, share, app_analysed, avg_rating, app_avg_rating, sentiment, first_review, last_review, themes: [{ id, label, description, review_count, example_phrases }] }] }` — per app, the reviews behind the topic, their average rating vs the app's overall, sentiment, date range and the app's themes in the topic |
 | GET | `/api/compare/groups/{id}/reviews?app_id=` | Original reviews behind one cell (same shape as theme reviews) |
+| GET | `/api/store-info` | `{ country, apps: [{ id, name, play_id, appstore_id, play, appstore: { data, error, fetched_at } \| null, revenue_model { label, paid, in_app_purchases, subscription, lifetime, ads, plans { monthly, yearly, lifetime } } }] }`. `revenue_model` is derived: paid = download price > 0; subscription / lifetime / plan prices from App Store purchase names (month, year / annual — not multi-year, lifetime / forever; cheapest per kind); ads from Play. Label e.g. "Freemium · subscription + ads" |
+| POST | `/api/store-info/refresh` | Refresh store info for every app (≈2 s per app, 1 s between apps). Returns `{ refreshed, errors: { app_id: { play?, appstore? } } }` |
+| POST | `/api/apps/{id}/store-info/refresh` | Refresh one app; returns its `/api/store-info` row plus `errors` |
 | GET | `/api/runs?app_id=` | Recent runs with token usage |
 | GET | `/api/export/markdown?app_id=` | Markdown file for the Obsidian vault (YAML frontmatter; themes, counts and phrases — no raw review text). With `app_id`: that app's report; without: the cross-app comparison. Returns the file itself (`Content-Disposition: attachment`), not the envelope; errors use the envelope |
 
@@ -151,6 +167,7 @@ All responses use the `{ data, error }` envelope format, except the Markdown exp
 - **Apps** — list of target apps with review / analysed counts, add/edit/delete, "Fetch" and "Analyse" buttons with progress (analysis polls `/api/runs`) and last-run status
 - **App detail** — one filter row (date range: all time / last 30 / 90 days / 12 months / custom; store: all / Play / App Store), kept in the URL; stat tiles (reviews, average rating, % analysed, % negative); sentiment as one stacked bar; average rating by month (line) and sentiment by month (100% stacked columns); top 10 pain points / positives / requests (horizontal bars, count at the bar end, generic themes noted but not ranked); click a bar or label → side panel with the original reviews. Every chart has a table view.
 - **Compare** — tabs for pain points / positives / requests; topics × apps table with cells shaded on a one-hue scale by share (count shown too); topics shared by ≥2 apps highlighted with a "Shared by N apps" badge and an "only shared" filter; apps with < 30 analysed reviews flagged as a small sample; click a topic → summary panel (per app: share, rating vs the app's overall, sentiment, date range, the app's themes with example phrases, and its reviews on demand); click a cell → side panel with its reviews; Build / Rebuild button and a notice when the comparison is stale; Export Markdown (also on App detail)
+- **Store info** (nav item after Compare) — one row per app: Google Play rating, ratings count, installs, store link; App Store rating, count, link; revenue model label; price (download price if paid, monthly / yearly / lifetime from App Store purchase names, Play's in-app price range, and the full App Store purchase list on expand); when it was updated, with a per-row Refresh and a Refresh all button. Prices are as listed in the `DEFAULT_COUNTRY` store's currency. Never fetched → empty state with a Fetch button
 - Every page: loading spinners, error states with retry, empty states with guidance; unknown addresses and missing apps show a not-found page; a render error shows a message with Reload instead of a blank page; the header's API status re-checks every 30 s and on tab focus
 
 Sentiment colors: green = positive, gray = neutral, red = negative — always in that order with gray between green and red (green vs red alone is not colour-blind safe), and always with text labels. This is why sentiment is a stacked bar, not a pie (a pie puts red next to green).

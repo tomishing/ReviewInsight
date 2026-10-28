@@ -12,6 +12,7 @@ It runs locally with Docker: a React UI, a FastAPI server, and PostgreSQL. Revie
 - **Apps** — the competitors you track; fetch their reviews and analyse them.
 - **App detail** — sentiment, rating and sentiment by month, and the top themes; click a theme to read the reviews behind it.
 - **Compare** — the same topics across apps; pain points shared by several competitors are opportunities for PopNickel. Click a topic for a per-app summary.
+- **Store info** — each app's store rating, installs, revenue model (subscription, lifetime purchase, ads…) and prices.
 - **Export** — Markdown reports (per app, or the comparison) for the Obsidian vault.
 
 `SPEC.md` has the details (data sources, schema, pipeline, API, pages); `CLAUDE.md` the project conventions.
@@ -66,7 +67,8 @@ Stop with `Ctrl+C` or `docker compose down`. Data lives in the `pgdata` volume a
 4. **Compare** → **Build comparison** groups every app's themes into shared topics (needs at least two analysed apps). After an app is analysed again, the page shows a notice — click **Rebuild**.
    - Click a **topic name** for its summary: per app, the share of reviews mentioning it, the average rating of those reviews against the app's overall rating, sentiment, when it was mentioned, the app's own themes behind it with example phrases, and the reviews themselves.
    - Click a **cell** to read that app's reviews for the topic.
-5. **Export Markdown** on the detail or Compare page downloads a report with YAML frontmatter, ready for the vault. Reports contain themes, counts and short phrases — no raw review text.
+5. **Store info** → **Fetch store details** (later **Refresh all**, or **Refresh** per row) reads each app's rating, price and in-app purchases from both stores, about 2 s per app. Monthly / yearly / lifetime prices are taken from the App Store's purchase names (e.g. "Cashew Pro Yearly $14.99"); Google Play only shows a price range, so Android-only apps show just that. Prices are in the store country's currency (CAD for `ca`).
+6. **Export Markdown** on the detail or Compare page downloads a report with YAML frontmatter, ready for the vault. Reports contain themes, counts and short phrases — no raw review text.
 
 ### Cost
 

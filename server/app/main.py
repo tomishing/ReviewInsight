@@ -14,7 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.db.migrate import run_migrations
 from app.db.pool import close_pool, get_pool, open_pool
 from app.envelope import fail, ok
-from app.routes import analysis, apps, compare, export, reviews, summary
+from app.routes import analysis, apps, compare, export, reviews, store_info, summary
 
 
 @asynccontextmanager
@@ -76,6 +76,7 @@ app.include_router(analysis.router)
 app.include_router(summary.router)
 app.include_router(compare.router)
 app.include_router(export.router)
+app.include_router(store_info.router)
 
 
 @app.get("/api/health")
